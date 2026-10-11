@@ -14,7 +14,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Decode and write package-lock.json
         run: |
-          cat .lock-parts/b64.* | base64 -d | gunzip > package-lock.json
+          count=$(ls .lock-parts/x* 2>/dev/null | wc -l)
+          echo "parts=$count"
+          test "$count" -eq 206
+          cat .lock-parts/x* | base64 -d | gunzip > package-lock.json
           wc -c package-lock.json
           python3 -c "import json; d=json.load(open('package-lock.json')); print(d.get('name'), d.get('lockfileVersion'))"
           test "$(wc -c < package-lock.json)" -eq 345008
