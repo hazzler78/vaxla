@@ -1,9 +1,11 @@
 import type { MetadataRoute } from "next";
-import { trades } from "@/lib/data";
+import { listTrades } from "@/lib/trades-repo";
 
 const siteUrl = "https://vaxla-chi.vercel.app";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const trades = await listTrades();
+
   const tradeEntries: MetadataRoute.Sitemap = trades.map((trade) => ({
     url: `${siteUrl}/marknad/${trade.id}`,
     lastModified: new Date(trade.createdAt),

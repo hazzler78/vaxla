@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Trade, TradeKind } from "@/lib/types";
 import { TradeRow } from "@/components/trade-row";
 import { Button } from "@/components/ui/button";
@@ -9,29 +9,17 @@ import { cn } from "@/lib/utils";
 type Filter = "all" | TradeKind;
 
 type Props = {
-  seedTrades: Trade[];
+  /** Server-fetched trades (Postgres when configured, otherwise seed). */
+  trades: Trade[];
 };
 
-export function MarketList({ seedTrades }: Props) {
-  const [localTrades, setLocalTrades] = useState<Trade[]>([]);
+export function MarketList({ trades }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("vaxla-local-trades");
-      if (raw) {
-        setLocalTrades(JSON.parse(raw) as Trade[]);
-      }
-    } catch {
-      setLocalTrades([]);
-    }
-  }, []);
-
   const items = useMemo(() => {
-    const merged = [...localTrades, ...seedTrades];
-    if (filter === "all") return merged;
-    return merged.filter((trade) => trade.kind === filter);
-  }, [filter, localTrades, seedTrades]);
+    if (filter === "all") return trades;
+    return trades.filter((trade) => trade.kind === filter);
+  }, [filter, trades]);
 
   return (
     <div>

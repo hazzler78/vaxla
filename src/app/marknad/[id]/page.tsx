@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { TradeDetail } from "@/components/trade-detail";
-import { getTrade, trades } from "@/lib/data";
+import { getTradeById } from "@/lib/trades-repo";
+import { seedTrades } from "@/lib/seed-trades";
 
-export function generateStaticParams() {
-  return trades.map((trade) => ({ id: trade.id }));
+/** Live trade from DB — blocking SSR keeps title/description in HTML (P1/P2). */
+export const instant = false;
+
+export async function generateStaticParams() {
+  // Seed ids for known prerender; live DB trades still resolve dynamically.
+  return seedTrades.map((trade) => ({ id: trade.id }));
 }
 
 export async function generateMetadata({
@@ -13,7 +19,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const trade = getTrade(id);
+  const trade = await getTradeById(id);
 
   if (!trade) {
     return {
@@ -46,17 +52,17 @@ export default async function TradePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await connection();
   const { id } = await params;
-  const trade = getTrade(id);
+  const trade = await getTradeById(id);
 
-  // Local-only wishes live in the browser; keep client fallback for those.
-  if (!trade && !id.startsWith("local-")) {
+  if (!trade) {
     notFound();
   }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-      <TradeDetail id={id} trade={trade} />
+      <TradeDetail key={`${trade.id}-${trade.status}-${trade.sponsor ?? ""}`} trade={trade} />
     </div>
   );
 }

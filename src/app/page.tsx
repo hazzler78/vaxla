@@ -1,14 +1,24 @@
 import Image from "next/image";
 import Link from "next/link";
-import { trades, formatSek } from "@/lib/data";
+import { connection } from "next/server";
+import { formatSek } from "@/lib/data";
+import { listTrades } from "@/lib/trades-repo";
 import { TradeRow } from "@/components/trade-row";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const featured = trades.find((trade) => trade.id === "airpods-mikael")!;
-const preview = trades.filter((trade) => trade.id !== featured.id).slice(0, 3);
+/** Home featured list comes from shared persistence. */
+export const instant = false;
 
-export default function Home() {
+export default async function Home() {
+  await connection();
+  const trades = await listTrades();
+  const featured =
+    trades.find((trade) => trade.id === "airpods-mikael") ?? trades[0];
+  const preview = trades
+    .filter((trade) => trade.id !== featured?.id)
+    .slice(0, 3);
+
   return (
     <>
       <section className="relative min-h-[calc(100svh-4rem)] overflow-hidden">
@@ -59,25 +69,28 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
-        <div className="max-w-2xl">
-          <p className="text-xs uppercase tracking-[0.18em] text-signal">
-            Exempel från marknaden
-          </p>
-          <h2 className="mt-3 font-heading text-4xl text-ink sm:text-5xl">
-            AirPods för {formatSek(featured.valueSek)} — betalas med 8 timmar
-          </h2>
-          <p className="mt-4 text-base leading-relaxed text-steel/80">
-            {featured.requester} vill ha nya AirPods. En sponsor kan betala
-            köpet. Mikael delar ut reklamblad eller klipper gräs tills värdet är
-            avbetalat.
-          </p>
-        </div>
+      {featured ? (
+        <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+          <div className="max-w-2xl">
+            <p className="text-xs uppercase tracking-[0.18em] text-signal">
+              Exempel från marknaden
+            </p>
+            <h2 className="mt-3 font-heading text-4xl text-ink sm:text-5xl">
+              {featured.title} för {formatSek(featured.valueSek)} — betalas med{" "}
+              {featured.hours} timmar
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-steel/80">
+              {featured.requester} vill ha {featured.title.toLowerCase()}. En
+              sponsor kan betala köpet. Timmarna räknas som betalning tills
+              värdet är avbetalat.
+            </p>
+          </div>
 
-        <div className="mt-10">
-          <TradeRow trade={featured} />
-        </div>
-      </section>
+          <div className="mt-10">
+            <TradeRow trade={featured} />
+          </div>
+        </section>
+      ) : null}
 
       <section
         id="sa-funkar-det"
