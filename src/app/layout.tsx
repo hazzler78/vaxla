@@ -21,10 +21,40 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = "https://vaxla-chi.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Växla — byt arbete mot det du behöver",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Växla — byt arbete mot det du behöver",
+    template: "%s — Växla",
+  },
   description:
     "En marknad där arbetskraft är betalmedel. Sponsorer betalar varan, du betalar tillbaka med timmar.",
+  openGraph: {
+    type: "website",
+    locale: "sv_SE",
+    siteName: "Växla",
+    title: "Växla — byt arbete mot det du behöver",
+    description:
+      "En marknad där arbetskraft är betalmedel. Sponsorer betalar varan, du betalar tillbaka med timmar.",
+    url: siteUrl,
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "Växla — byt arbete mot det du behöver",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Växla — byt arbete mot det du behöver",
+    description:
+      "En marknad där arbetskraft är betalmedel. Sponsorer betalar varan, du betalar tillbaka med timmar.",
+    images: ["/og.png"],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

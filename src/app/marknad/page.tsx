@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MarketList } from "@/components/market-list";
 import { buttonVariants } from "@/components/ui/button";
+import { trades } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 export default function MarknadPage() {
@@ -30,7 +31,7 @@ export default function MarknadPage() {
         </Link>
       </div>
 
-      <MarketList />
+      <MarketList seedTrades={trades} />
     </div>
   );
 }

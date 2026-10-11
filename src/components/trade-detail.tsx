@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { getTrade, formatSek, statusLabel } from "@/lib/data";
+import { formatSek, statusLabel } from "@/lib/data";
 import type { Trade } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,21 +11,24 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type Props = {
+  /** Seed trade from the server — present on first paint for SSR routes. */
+  trade?: Trade;
   id: string;
 };
 
-export function TradeDetail({ id }: Props) {
-  const [trade, setTrade] = useState<Trade | null | undefined>(undefined);
+export function TradeDetail({ trade: seedTrade, id }: Props) {
+  const [trade, setTrade] = useState<Trade | null | undefined>(
+    seedTrade ?? undefined,
+  );
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const seeded = getTrade(id);
-    if (seeded) {
+    if (seedTrade) {
       try {
         const raw = sessionStorage.getItem(`vaxla-status-${id}`);
-        setTrade(raw ? (JSON.parse(raw) as Trade) : seeded);
+        setTrade(raw ? (JSON.parse(raw) as Trade) : seedTrade);
       } catch {
-        setTrade(seeded);
+        setTrade(seedTrade);
       }
       return;
     }
@@ -37,7 +40,7 @@ export function TradeDetail({ id }: Props) {
     } catch {
       setTrade(null);
     }
-  }, [id]);
+  }, [id, seedTrade]);
 
   function persist(next: Trade) {
     if (!next.id.startsWith("local-")) {
