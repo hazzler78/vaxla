@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { trades as seedTrades } from "@/lib/data";
 import type { Trade, TradeKind } from "@/lib/types";
 import { TradeRow } from "@/components/trade-row";
 import { Button } from "@/components/ui/button";
@@ -9,10 +8,13 @@ import { cn } from "@/lib/utils";
 
 type Filter = "all" | TradeKind;
 
-export function MarketList() {
+type Props = {
+  seedTrades: Trade[];
+};
+
+export function MarketList({ seedTrades }: Props) {
   const [localTrades, setLocalTrades] = useState<Trade[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     try {
@@ -22,8 +24,6 @@ export function MarketList() {
       }
     } catch {
       setLocalTrades([]);
-    } finally {
-      setLoaded(true);
     }
   }, []);
 
@@ -31,7 +31,7 @@ export function MarketList() {
     const merged = [...localTrades, ...seedTrades];
     if (filter === "all") return merged;
     return merged.filter((trade) => trade.kind === filter);
-  }, [filter, localTrades]);
+  }, [filter, localTrades, seedTrades]);
 
   return (
     <div>
@@ -58,9 +58,7 @@ export function MarketList() {
         ))}
       </div>
 
-      {!loaded ? (
-        <p className="py-16 text-muted-foreground">Laddar marknaden…</p>
-      ) : items.length === 0 ? (
+      {items.length === 0 ? (
         <div className="border border-dashed border-ink/20 px-6 py-16 text-center">
           <h2 className="font-heading text-3xl text-ink">Inga träffar</h2>
           <p className="mt-2 text-muted-foreground">
