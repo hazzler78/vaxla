@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { Trade } from "@/lib/types";
 
 type FormState = {
   title: string;
@@ -63,35 +64,31 @@ export function CreateRequestForm() {
     setSaving(true);
 
     try {
-      const id = `local-${Date.now()}`;
-      const trade = {
-        id,
-        kind: "want" as const,
-        title: form.title.trim(),
-        description:
-          form.description.trim() ||
-          `Jag vill ha ${form.title.trim()} och betalar med arbetskraft.`,
-        valueSek: value,
-        hours: hours > 0 ? hours : Math.max(1, Math.round(value / 170)),
-        workOffer: form.workOffer.trim(),
-        location: form.location.trim() || "Sverige",
-        requester: "Du",
-        status: "open" as const,
-        category: form.category,
-        image:
-          "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1600&q=80",
-        createdAt: new Date().toISOString().slice(0, 10),
-      };
+      const res = await fetch("/api/trades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          description: form.description.trim(),
+          valueSek: value,
+          hours: hours > 0 ? hours : Math.max(1, Math.round(value / 170)),
+          workOffer: form.workOffer.trim(),
+          location: form.location.trim() || "Sverige",
+          requester: "Du",
+          category: form.category,
+          kind: "want",
+        }),
+      });
 
-      const existing = JSON.parse(
-        localStorage.getItem("vaxla-local-trades") || "[]",
-      ) as unknown[];
-      localStorage.setItem(
-        "vaxla-local-trades",
-        JSON.stringify([trade, ...existing]),
-      );
+      const data = (await res.json()) as { trade?: Trade; error?: string };
+      if (!res.ok || !data.trade) {
+        setError(data.error || "Kunde inte spara önskemålet. Försök igen.");
+        setSaving(false);
+        return;
+      }
 
-      router.push(`/marknad/${id}`);
+      router.push(`/marknad/${data.trade.id}`);
+      router.refresh();
     } catch {
       setError("Kunde inte spara önskemålet. Försök igen.");
       setSaving(false);

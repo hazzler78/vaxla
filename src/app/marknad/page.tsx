@@ -1,10 +1,17 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { MarketList } from "@/components/market-list";
 import { buttonVariants } from "@/components/ui/button";
-import { trades } from "@/lib/data";
+import { listTrades } from "@/lib/trades-repo";
 import { cn } from "@/lib/utils";
 
-export default function MarknadPage() {
+/** Live market data — allow blocking SSR so trade titles stay in HTML (P1). */
+export const instant = false;
+
+export default async function MarknadPage() {
+  await connection();
+  const trades = await listTrades();
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
       <div className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -31,7 +38,7 @@ export default function MarknadPage() {
         </Link>
       </div>
 
-      <MarketList seedTrades={trades} />
+      <MarketList trades={trades} />
     </div>
   );
 }

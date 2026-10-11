@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatSek, statusLabel } from "@/lib/data";
 import type { Trade } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -11,98 +12,64 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  /** Seed trade from the server — present on first paint for SSR routes. */
-  trade?: Trade;
-  id: string;
+  trade: Trade;
 };
 
-export function TradeDetail({ trade: seedTrade, id }: Props) {
-  const [trade, setTrade] = useState<Trade | null | undefined>(
-    seedTrade ?? undefined,
-  );
+export function TradeDetail({ trade: initial }: Props) {
+  const router = useRouter();
+  const [trade, setTrade] = useState<Trade>(initial);
   const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (seedTrade) {
-      try {
-        const raw = sessionStorage.getItem(`vaxla-status-${id}`);
-        setTrade(raw ? (JSON.parse(raw) as Trade) : seedTrade);
-      } catch {
-        setTrade(seedTrade);
+  async function persist(patch: {
+    status: Trade["status"];
+    sponsor?: string | null;
+  }) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/trades/${trade.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = (await res.json()) as { trade?: Trade; error?: string };
+      if (!res.ok || !data.trade) {
+        setMessage(data.error || "Kunde inte spara statusen.");
+        return null;
       }
-      return;
-    }
-
-    try {
-      const raw = localStorage.getItem("vaxla-local-trades");
-      const local = raw ? (JSON.parse(raw) as Trade[]) : [];
-      setTrade(local.find((item) => item.id === id) ?? null);
+      setTrade(data.trade);
+      router.refresh();
+      return data.trade;
     } catch {
-      setTrade(null);
-    }
-  }, [id, seedTrade]);
-
-  function persist(next: Trade) {
-    if (!next.id.startsWith("local-")) {
-      sessionStorage.setItem(`vaxla-status-${next.id}`, JSON.stringify(next));
-      return;
-    }
-
-    try {
-      const raw = localStorage.getItem("vaxla-local-trades");
-      const local = raw ? (JSON.parse(raw) as Trade[]) : [];
-      const updated = local.map((item) => (item.id === next.id ? next : item));
-      localStorage.setItem("vaxla-local-trades", JSON.stringify(updated));
-    } catch {
-      /* ignore */
+      setMessage("Nätverksfel — försök igen.");
+      return null;
+    } finally {
+      setBusy(false);
     }
   }
 
-  function sponsor() {
-    if (!trade) return;
-    const next = {
-      ...trade,
-      status: "sponsored" as const,
+  async function sponsor() {
+    const next = await persist({
+      status: "sponsored",
       sponsor: "Du (sponsor)",
-    };
-    persist(next);
-    setTrade(next);
-    setMessage(
-      "Du har gått in som sponsor. Mottagaren får varan när arbetstimmarna är klara.",
-    );
+    });
+    if (next) {
+      setMessage(
+        "Du har gått in som sponsor. Mottagaren får varan när arbetstimmarna är klara.",
+      );
+    }
   }
 
-  function claimWork() {
-    if (!trade) return;
-    const next = { ...trade, status: "in_progress" as const };
-    persist(next);
-    setTrade(next);
-    setMessage(
-      trade.kind === "job"
-        ? "Du har tagit uppdraget. Timmarna räknas mot ditt öppna önskemål."
-        : "Arbetet är igång. När timmarna är klara frigörs varan.",
-    );
-  }
-
-  if (trade === undefined) {
-    return <p className="py-20 text-muted-foreground">Hämtar bytet…</p>;
-  }
-
-  if (trade === null) {
-    return (
-      <div className="py-20">
-        <h1 className="font-heading text-4xl text-ink">Hittades inte</h1>
-        <p className="mt-3 text-muted-foreground">
-          Det här önskemålet eller uppdraget finns inte längre.
-        </p>
-        <Link
-          href="/marknad"
-          className={cn(buttonVariants(), "mt-6 inline-flex rounded-sm bg-signal hover:bg-signal-deep")}
-        >
-          Tillbaka till marknaden
-        </Link>
-      </div>
-    );
+  async function claimWork() {
+    const next = await persist({ status: "in_progress" });
+    if (next) {
+      setMessage(
+        trade.kind === "job"
+          ? "Du har tagit uppdraget. Timmarna räknas mot ditt öppna önskemål."
+          : "Arbetet är igång. När timmarna är klara frigörs varan.",
+      );
+    }
   }
 
   return (
@@ -188,6 +155,7 @@ export function TradeDetail({ trade: seedTrade, id }: Props) {
             <Button
               type="button"
               size="lg"
+              disabled={busy}
               className="rounded-sm bg-signal px-5 hover:bg-signal-deep"
               onClick={sponsor}
             >
@@ -198,6 +166,7 @@ export function TradeDetail({ trade: seedTrade, id }: Props) {
             type="button"
             size="lg"
             variant="secondary"
+            disabled={busy || trade.status === "in_progress" || trade.status === "done"}
             className="rounded-sm px-5"
             onClick={claimWork}
           >
