@@ -12,11 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Concatenate lock parts
+      - name: Decode and write package-lock.json
         run: |
-          cat .lock-parts/* > package-lock.json
+          cat .lock-parts/b64.* | base64 -d | gunzip > package-lock.json
           wc -c package-lock.json
-          python3 -c "import json; json.load(open('package-lock.json')); print('valid json')"
+          python3 -c "import json; d=json.load(open('package-lock.json')); print(d.get('name'), d.get('lockfileVersion'))"
+          test "$(wc -c < package-lock.json)" -eq 345008
       - name: Commit package-lock.json
         run: |
           git config user.name "github-actions[bot]"
