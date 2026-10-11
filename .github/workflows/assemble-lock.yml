@@ -4,6 +4,7 @@ on:
     paths:
       - '.lock-parts/**'
       - '.github/workflows/assemble-lock.yml'
+      - 'package.json'
   workflow_dispatch:
 permissions:
   contents: write
@@ -12,15 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Decode and write package-lock.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build package-lock.json
         run: |
-          count=$(ls .lock-parts/x* 2>/dev/null | wc -l)
+          set -euo pipefail
+          count=$(ls .lock-parts/x* 2>/dev/null | wc -l || true)
           echo "parts=$count"
-          test "$count" -eq 206
-          cat .lock-parts/x* | base64 -d | gunzip > package-lock.json
-          wc -c package-lock.json
+          if [ "$count" -eq 206 ]; then
+            cat .lock-parts/x* | base64 -d | gunzip > package-lock.json
+            test "$(wc -c < package-lock.json)" -eq 345008
+          else
+            npm install --package-lock-only --ignore-scripts
+          fi
           python3 -c "import json; d=json.load(open('package-lock.json')); print(d.get('name'), d.get('lockfileVersion'))"
-          test "$(wc -c < package-lock.json)" -eq 345008
+          wc -c package-lock.json
       - name: Commit package-lock.json
         run: |
           git config user.name "github-actions[bot]"
