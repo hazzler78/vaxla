@@ -50,7 +50,7 @@ export const trades: Trade[] = [
     status: "open",
     category: "Elektronik",
     image:
-      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1517336714651-489689fd1ca8?auto=format&fit=crop&w=1600&q=80",
     createdAt: "2026-10-09",
   },
   {
