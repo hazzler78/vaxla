@@ -17,4 +17,8 @@ export type Trade = {
   category: string;
   image: string;
   createdAt: string;
+  /** Signed-cookie actor that created the trade (early-access ownership). */
+  ownerId?: string;
+  /** Signed-cookie actor that claimed sponsor. */
+  sponsorId?: string;
 };

@@ -66,6 +66,7 @@ export function CreateRequestForm() {
     try {
       const res = await fetch("/api/trades", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: form.title.trim(),

@@ -1,18 +1,27 @@
-import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createTrade, listTrades } from "@/lib/trades-repo";
 import { isDatabaseConfigured } from "@/lib/db";
+import {
+  clientKey,
+  pruneRateLimitBuckets,
+  rateLimit,
+} from "@/lib/rate-limit";
+import { validateCreateBody } from "@/lib/trade-validation";
+import { jsonWithActorCookie, resolveWriteActor } from "@/lib/write-gate";
 
 export async function GET() {
   try {
     const trades = await listTrades();
-    return NextResponse.json({
-      trades,
-      source: isDatabaseConfigured() ? "database" : "seed",
-    });
+    return jsonWithActorCookie(
+      {
+        trades,
+        source: isDatabaseConfigured() ? "database" : "seed",
+      },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("GET /api/trades", error);
-    return NextResponse.json(
+    return jsonWithActorCookie(
       { error: "Kunde inte hämta byten." },
       { status: 500 },
     );
@@ -21,7 +30,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!isDatabaseConfigured()) {
-    return NextResponse.json(
+    return jsonWithActorCookie(
       {
         error:
           "Databasen är inte kopplad. Lägg till Neon Postgres (DATABASE_URL) på Vercel-projektet vaxla.",
@@ -30,48 +39,49 @@ export async function POST(request: Request) {
     );
   }
 
+  pruneRateLimitBuckets();
+  const limited = rateLimit(clientKey(request, "post-trades"), 8, 60_000);
+  if (!limited.ok) {
+    return jsonWithActorCookie(
+      { error: "För många förfrågningar. Vänta en stund och försök igen." },
+      { status: 429 },
+    );
+  }
+
+  const gate = resolveWriteActor(request);
+  if (!gate.actor) {
+    return jsonWithActorCookie(
+      { error: gate.error ?? "Ej behörig." },
+      { status: gate.status ?? 401 },
+    );
+  }
+
   try {
-    const body = (await request.json()) as {
-      title?: string;
-      description?: string;
-      valueSek?: number;
-      hours?: number;
-      workOffer?: string;
-      location?: string;
-      requester?: string;
-      category?: string;
-      image?: string;
-      kind?: "want" | "job";
-    };
-
-    const title = body.title?.trim() ?? "";
-    const workOffer = body.workOffer?.trim() ?? "";
-    const valueSek = Number(body.valueSek);
-    const hours = Number(body.hours);
-
-    if (!title || !workOffer || !Number.isFinite(valueSek) || valueSek <= 0) {
-      return NextResponse.json(
-        { error: "Fyll i minst titel, värde och vad du kan erbjuda." },
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonWithActorCookie(
+        { error: "Ogiltig JSON-body." },
         { status: 400 },
+        gate.cookieToSet,
+      );
+    }
+
+    const validated = validateCreateBody(
+      (body ?? {}) as Parameters<typeof validateCreateBody>[0],
+    );
+    if (!validated.ok) {
+      return jsonWithActorCookie(
+        { error: validated.error },
+        { status: 400 },
+        gate.cookieToSet,
       );
     }
 
     const trade = await createTrade({
-      kind: body.kind ?? "want",
-      title,
-      description:
-        body.description?.trim() ||
-        `Jag vill ha ${title} och betalar med arbetskraft.`,
-      valueSek,
-      hours:
-        Number.isFinite(hours) && hours > 0
-          ? hours
-          : Math.max(1, Math.round(valueSek / 170)),
-      workOffer,
-      location: body.location?.trim() || "Sverige",
-      requester: body.requester?.trim() || "Du",
-      category: body.category?.trim() || "Övrigt",
-      image: body.image,
+      ...validated.data,
+      ownerId: gate.actor.isAdmin ? undefined : gate.actor.id,
     });
 
     revalidatePath("/");
@@ -79,12 +89,13 @@ export async function POST(request: Request) {
     revalidatePath(`/marknad/${trade.id}`);
     revalidatePath("/sitemap.xml");
 
-    return NextResponse.json({ trade }, { status: 201 });
+    return jsonWithActorCookie({ trade }, { status: 201 }, gate.cookieToSet);
   } catch (error) {
     console.error("POST /api/trades", error);
-    return NextResponse.json(
+    return jsonWithActorCookie(
       { error: "Kunde inte spara önskemålet." },
       { status: 500 },
+      gate.cookieToSet,
     );
   }
 }

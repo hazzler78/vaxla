@@ -30,6 +30,7 @@ export function TradeDetail({ trade: initial }: Props) {
     try {
       const res = await fetch(`/api/trades/${trade.id}`, {
         method: "PATCH",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
