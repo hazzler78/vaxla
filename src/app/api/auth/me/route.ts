@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { connection, NextResponse } from "next/server";
 import { resolveSessionUser } from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(request: Request) {
+  // Request-time session cookie — Cache Components forbids `dynamic = "force-dynamic"`.
+  await connection();
+
   try {
     const user = await resolveSessionUser(request);
     if (!user) {
