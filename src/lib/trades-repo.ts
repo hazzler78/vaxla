@@ -17,6 +17,8 @@ type TradeRow = {
   category: string;
   image: string;
   created_at: string;
+  owner_id: string | null;
+  sponsor_id: string | null;
 };
 
 function rowToTrade(row: TradeRow): Trade {
@@ -35,6 +37,8 @@ function rowToTrade(row: TradeRow): Trade {
     category: row.category,
     image: row.image,
     createdAt: row.created_at,
+    ownerId: row.owner_id ?? undefined,
+    sponsorId: row.sponsor_id ?? undefined,
   };
 }
 
@@ -58,9 +62,15 @@ async function ensureSchemaAndSeed(): Promise<void> {
       status TEXT NOT NULL CHECK (status IN ('open', 'sponsored', 'in_progress', 'done')),
       category TEXT NOT NULL,
       image TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      owner_id TEXT,
+      sponsor_id TEXT
     )
   `;
+
+  // Existing DBs created before ownership columns.
+  await sql`ALTER TABLE trades ADD COLUMN IF NOT EXISTS owner_id TEXT`;
+  await sql`ALTER TABLE trades ADD COLUMN IF NOT EXISTS sponsor_id TEXT`;
 
   const countRows = await sql`SELECT COUNT(*)::int AS count FROM trades`;
   const count = Number((countRows[0] as { count: number }).count);
@@ -116,7 +126,8 @@ export async function listTrades(): Promise<Trade[]> {
   const rows = await sql`
     SELECT
       id, kind, title, description, value_sek, hours, work_offer,
-      location, requester, sponsor, status, category, image, created_at
+      location, requester, sponsor, status, category, image, created_at,
+      owner_id, sponsor_id
     FROM trades
     ORDER BY created_at DESC, id ASC
   `;
@@ -133,7 +144,8 @@ export async function getTradeById(id: string): Promise<Trade | undefined> {
   const rows = await sql`
     SELECT
       id, kind, title, description, value_sek, hours, work_offer,
-      location, requester, sponsor, status, category, image, created_at
+      location, requester, sponsor, status, category, image, created_at,
+      owner_id, sponsor_id
     FROM trades
     WHERE id = ${id}
     LIMIT 1
@@ -153,6 +165,7 @@ export type CreateTradeInput = {
   requester: string;
   category: string;
   image?: string;
+  ownerId?: string;
 };
 
 function slugify(value: string): string {
@@ -195,12 +208,14 @@ export async function createTrade(input: CreateTradeInput): Promise<Trade> {
     category: input.category,
     image,
     createdAt,
+    ownerId: input.ownerId,
   };
 
   await sql`
     INSERT INTO trades (
       id, kind, title, description, value_sek, hours, work_offer,
-      location, requester, sponsor, status, category, image, created_at
+      location, requester, sponsor, status, category, image, created_at,
+      owner_id, sponsor_id
     ) VALUES (
       ${trade.id},
       ${trade.kind},
@@ -215,7 +230,9 @@ export async function createTrade(input: CreateTradeInput): Promise<Trade> {
       ${trade.status},
       ${trade.category},
       ${trade.image},
-      ${trade.createdAt}
+      ${trade.createdAt},
+      ${trade.ownerId ?? null},
+      ${null}
     )
   `;
 
@@ -225,6 +242,7 @@ export async function createTrade(input: CreateTradeInput): Promise<Trade> {
 export type UpdateTradePatch = {
   status?: TradeStatus;
   sponsor?: string | null;
+  sponsorId?: string | null;
 };
 
 export async function updateTrade(
@@ -246,6 +264,10 @@ export async function updateTrade(
       patch.sponsor === undefined
         ? existing.sponsor
         : patch.sponsor ?? undefined,
+    sponsorId:
+      patch.sponsorId === undefined
+        ? existing.sponsorId
+        : patch.sponsorId ?? undefined,
   };
 
   const sql = getSql();
@@ -253,7 +275,8 @@ export async function updateTrade(
     UPDATE trades
     SET
       status = ${next.status},
-      sponsor = ${next.sponsor ?? null}
+      sponsor = ${next.sponsor ?? null},
+      sponsor_id = ${next.sponsorId ?? null}
     WHERE id = ${id}
   `;
 
