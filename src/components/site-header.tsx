@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Menu } from "lucide-react";
+import { AuthStatus } from "@/components/auth-status";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
@@ -36,6 +37,7 @@ export function SiteHeader() {
               {link.label}
             </Link>
           ))}
+          <AuthStatus />
           <Link
             href="/nytt"
             className={cn(
@@ -71,6 +73,7 @@ export function SiteHeader() {
                   {link.label}
                 </Link>
               ))}
+              <AuthStatus compact />
               <Link
                 href="/nytt"
                 className={cn(

@@ -39,8 +39,8 @@ export async function POST(request: Request) {
     );
   }
 
-  pruneRateLimitBuckets();
-  const limited = rateLimit(clientKey(request, "post-trades"), 8, 60_000);
+  await pruneRateLimitBuckets();
+  const limited = await rateLimit(clientKey(request, "post-trades"), 8, 60_000);
   if (!limited.ok) {
     return jsonWithActorCookie(
       { error: "För många förfrågningar. Vänta en stund och försök igen." },
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const gate = resolveWriteActor(request);
+  const gate = await resolveWriteActor(request);
   if (!gate.actor) {
     return jsonWithActorCookie(
       { error: gate.error ?? "Ej behörig." },
@@ -64,7 +64,6 @@ export async function POST(request: Request) {
       return jsonWithActorCookie(
         { error: "Ogiltig JSON-body." },
         { status: 400 },
-        gate.cookieToSet,
       );
     }
 
@@ -75,12 +74,17 @@ export async function POST(request: Request) {
       return jsonWithActorCookie(
         { error: validated.error },
         { status: 400 },
-        gate.cookieToSet,
       );
     }
 
+    const requester =
+      gate.actor.user?.displayName ||
+      validated.data.requester ||
+      "Du";
+
     const trade = await createTrade({
       ...validated.data,
+      requester,
       ownerId: gate.actor.isAdmin ? undefined : gate.actor.id,
     });
 
@@ -89,13 +93,12 @@ export async function POST(request: Request) {
     revalidatePath(`/marknad/${trade.id}`);
     revalidatePath("/sitemap.xml");
 
-    return jsonWithActorCookie({ trade }, { status: 201 }, gate.cookieToSet);
+    return jsonWithActorCookie({ trade }, { status: 201 });
   } catch (error) {
     console.error("POST /api/trades", error);
     return jsonWithActorCookie(
       { error: "Kunde inte spara önskemålet." },
       { status: 500 },
-      gate.cookieToSet,
     );
   }
 }

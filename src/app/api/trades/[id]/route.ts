@@ -51,8 +51,12 @@ export async function PATCH(
     );
   }
 
-  pruneRateLimitBuckets();
-  const limited = rateLimit(clientKey(request, "patch-trades"), 20, 60_000);
+  await pruneRateLimitBuckets();
+  const limited = await rateLimit(
+    clientKey(request, "patch-trades"),
+    20,
+    60_000,
+  );
   if (!limited.ok) {
     return jsonWithActorCookie(
       { error: "För många förfrågningar. Vänta en stund och försök igen." },
@@ -60,7 +64,7 @@ export async function PATCH(
     );
   }
 
-  const gate = resolveWriteActor(request);
+  const gate = await resolveWriteActor(request);
   if (!gate.actor) {
     return jsonWithActorCookie(
       { error: gate.error ?? "Ej behörig." },
@@ -78,7 +82,6 @@ export async function PATCH(
       return jsonWithActorCookie(
         { error: "Ogiltig JSON-body." },
         { status: 400 },
-        gate.cookieToSet,
       );
     }
 
@@ -91,7 +94,6 @@ export async function PATCH(
       return jsonWithActorCookie(
         { error: "Ogiltig status." },
         { status: 400 },
-        gate.cookieToSet,
       );
     }
 
@@ -100,7 +102,6 @@ export async function PATCH(
       return jsonWithActorCookie(
         { error: sponsorCheck.error },
         { status: 400 },
-        gate.cookieToSet,
       );
     }
 
@@ -109,20 +110,31 @@ export async function PATCH(
       return jsonWithActorCookie(
         { error: "Hittades inte" },
         { status: 404 },
-        gate.cookieToSet,
       );
+    }
+
+    // Prefer account display name when sponsoring.
+    let sponsorValue = sponsorCheck.value;
+    if (
+      raw.status === "sponsored" &&
+      gate.actor.user &&
+      (sponsorValue === undefined ||
+        sponsorValue === null ||
+        sponsorValue === "Sponsor" ||
+        sponsorValue === "Du (sponsor)")
+    ) {
+      sponsorValue = gate.actor.user.displayName;
     }
 
     const decision = decideStatusPatch(existing, gate.actor, {
       status: raw.status,
-      sponsor: sponsorCheck.value,
+      sponsor: sponsorValue,
     });
 
     if (!decision.ok) {
       return jsonWithActorCookie(
         { error: decision.error },
         { status: decision.status },
-        gate.cookieToSet,
       );
     }
 
@@ -136,7 +148,6 @@ export async function PATCH(
       return jsonWithActorCookie(
         { error: "Hittades inte" },
         { status: 404 },
-        gate.cookieToSet,
       );
     }
 
@@ -144,13 +155,12 @@ export async function PATCH(
     revalidatePath("/marknad");
     revalidatePath(`/marknad/${id}`);
 
-    return jsonWithActorCookie({ trade }, { status: 200 }, gate.cookieToSet);
+    return jsonWithActorCookie({ trade }, { status: 200 });
   } catch (error) {
     console.error("PATCH /api/trades/[id]", error);
     return jsonWithActorCookie(
       { error: "Kunde inte uppdatera bytet." },
       { status: 500 },
-      gate.cookieToSet,
     );
   }
 }

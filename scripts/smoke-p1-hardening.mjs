@@ -2,7 +2,7 @@
  * Lightweight smoke checks for P1 helpers (no Next server required).
  * Run: node scripts/smoke-p1-hardening.mjs
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -29,7 +29,11 @@ assert(!isAllowed("open", "done"), "reject open→done");
 assert(!isAllowed("done", "open"), "reject done→open");
 assert(!isAllowed("sponsored", "open"), "reject sponsored→open");
 
-// --- cookie sign/verify ---
+// --- session / magic token hashing ---
+const raw = "session-or-magic-token";
+const hash = createHash("sha256").update(raw).digest("hex");
+assert(hash.length === 64, "sha256 hex length");
+
 const secret = "test-secret";
 const id = "actor-1";
 const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -42,11 +46,25 @@ const expected = createHmac("sha256", secret)
   .digest("base64url");
 assert(
   timingSafeEqual(Buffer.from(csig), Buffer.from(expected)),
-  "cookie sig ok",
+  "hmac sig ok",
 );
+
+// --- email normalize mirror ---
+function normalizeEmail(email) {
+  return email.trim().toLowerCase();
+}
+assert(normalizeEmail("  A@B.se ") === "a@b.se", "email normalize");
 
 // --- validation caps ---
 assert(120 >= "x".repeat(120).length, "title max");
 assert(1_000_000 >= 999999, "value cap");
+
+// --- rate limit upsert semantics (mirror) ---
+function nextCount(existingCount, resetAt, now) {
+  if (resetAt <= now) return 1;
+  return existingCount + 1;
+}
+assert(nextCount(5, Date.now() - 1, Date.now()) === 1, "window reset");
+assert(nextCount(5, Date.now() + 1000, Date.now()) === 6, "increment");
 
 console.log("smoke-p1-hardening: ok");

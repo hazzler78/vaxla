@@ -25,20 +25,35 @@ After linking Neon to the Vercel project `vaxla`, these are injected automatical
 | `POSTGRES_URL` | fallback | Legacy Vercel Postgres name — also accepted |
 | `POSTGRES_PRISMA_URL` | fallback | Accepted if present |
 | `DATABASE_URL_UNPOOLED` / `POSTGRES_URL_NON_POOLING` | optional | Accepted as last-resort fallbacks |
-| `VAXLA_WRITE_TOKEN` | recommended | Shared secret for write hardening (see below) |
-| `VAXLA_REQUIRE_WRITE_TOKEN` | optional | Set to `1` for invite-only writes (admin token required) |
+| `VAXLA_WRITE_TOKEN` | recommended | Admin secret for write bypass + invite-only mode |
+| `VAXLA_REQUIRE_WRITE_TOKEN` | optional | Set to `1` for invite-only writes (admin token required; sessions disabled for writes) |
+| `VAXLA_AUTH_DEV_LINKS` | optional | Set to `1` to always return magic-link URLs in the API response |
+| `VAXLA_SMTP_URL` | optional | When set, magic links are not returned in JSON (logged server-side until a mailer is wired) |
 
-### Write hardening (early access)
+### Accounts (magic link)
+
+Creates, sponsoring, and status updates require a **real account** (not an anonymous actor cookie):
+
+1. Open `/logga-in` and enter e-post (+ optional visningsnamn).
+2. `POST /api/auth/magic-link` stores a one-time token in Neon (`magic_links`).
+3. Open the verify URL → `GET /api/auth/verify?token=…` creates/upserts `users` and sets httpOnly `vaxla_session`.
+4. Trade `owner_id` / `sponsor_id` store the account user id.
+
+Without SMTP (`VAXLA_SMTP_URL` unset), the magic-link API **returns `verifyUrl`** so local/preview login still works. Set `VAXLA_AUTH_DEV_LINKS=1` to force that behavior even if SMTP is configured later.
+
+Tables (auto-created on first use): `users`, `sessions`, `magic_links`, `rate_limits`, plus existing `trades`.
+
+### Write hardening
 
 `POST /api/trades` and `PATCH /api/trades/[id]` are gated:
 
 1. **Admin token** — `Authorization: Bearer <VAXLA_WRITE_TOKEN>` or header `X-Vaxla-Write-Token: <token>` bypasses ownership checks.
-2. **Signed actor cookie** — browser clients get an httpOnly `vaxla_actor` cookie (HMAC-signed with the write token, or derived from `DATABASE_URL` if the token is unset). Creates bind `owner_id`; sponsoring binds `sponsor_id`.
-3. **Status machine** — only forward transitions: `open → sponsored|in_progress → done` (via `sponsored → in_progress` when applicable). Illegal jumps return `409`.
+2. **Account session** — browser clients must be logged in (`vaxla_session`). Creates bind `owner_id`; sponsoring binds `sponsor_id`.
+3. **Status machine** — only forward transitions: `open → sponsored|in_progress → done` (via `sponsored → in_progress` when applicable). Illegal jumps return `409`. Owner or sponsor may set `done` from `in_progress` (UI: **Markera som klar**).
 4. **Validation** — max lengths, `kind` enum, integer caps on `valueSek` / `hours`, `https` image URLs.
-5. **Rate limits** — best-effort per-instance limits on POST/PATCH (blunts casual spam on Vercel).
+5. **Shared rate limits** — Neon-backed (`rate_limits` table) so POST/PATCH quotas hold across Vercel instances (POST 8/min, PATCH 20/min per IP; auth magic-link 5/min).
 
-Invite-only mode: set `VAXLA_REQUIRE_WRITE_TOKEN=1` so anonymous cookie minting is disabled and every write needs the admin token.
+Invite-only mode: set `VAXLA_REQUIRE_WRITE_TOKEN=1` so session writes are disabled and every write needs the admin token.
 
 Locally:
 
@@ -47,7 +62,7 @@ vercel link --project vaxla --scope mikaels-projects-902560d4
 vercel env pull .env.local
 ```
 
-Without `DATABASE_URL`, the app serves the 6 seed trades from code (SSR still works). Creates/status updates return `503` until Postgres is linked.
+Without `DATABASE_URL`, the app serves the 6 seed trades from code (SSR still works). Creates/status updates / auth return `503` until Postgres is linked.
 
 ### Provision Neon (Mikael)
 
@@ -57,7 +72,7 @@ Without `DATABASE_URL`, the app serves the 6 seed trades from code (SSR still wo
 4. Connect to **Production**, **Preview**, and **Development**
 5. Redeploy (or wait for the next preview from this PR)
 
-First request creates the `trades` table and seeds the 6 demo rows.
+First request creates the `trades` table and seeds the 6 demo rows (auth/rate-limit tables are created on first auth or write).
 
 CLI alternative (after `vercel login`):
 
@@ -73,6 +88,8 @@ npm run dev -- --port 43123
 ```
 
 Öppna [http://127.0.0.1:43123](http://127.0.0.1:43123).
+
+Logga in via [http://127.0.0.1:43123/logga-in](http://127.0.0.1:43123/logga-in) — without SMTP the response includes a clickable verify link.
 
 ## Stack
 
