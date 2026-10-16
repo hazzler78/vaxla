@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,11 +36,34 @@ const initial: FormState = {
   category: "Elektronik",
 };
 
+type MeUser = {
+  id: string;
+  email: string;
+  displayName: string;
+};
+
 export function CreateRequestForm() {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(initial);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [me, setMe] = useState<MeUser | null | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "same-origin" });
+        const data = (await res.json()) as { user?: MeUser | null };
+        if (!cancelled) setMe(data.user ?? null);
+      } catch {
+        if (!cancelled) setMe(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -48,6 +72,11 @@ export function CreateRequestForm() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+
+    if (!me) {
+      setError("Logga in för att publicera ett önskemål.");
+      return;
+    }
 
     if (!form.title.trim() || !form.valueSek || !form.workOffer.trim()) {
       setError("Fyll i minst titel, värde och vad du kan erbjuda.");
@@ -75,7 +104,7 @@ export function CreateRequestForm() {
           hours: hours > 0 ? hours : Math.max(1, Math.round(value / 170)),
           workOffer: form.workOffer.trim(),
           location: form.location.trim() || "Sverige",
-          requester: "Du",
+          requester: me.displayName || "Du",
           category: form.category,
           kind: "want",
         }),
@@ -94,6 +123,22 @@ export function CreateRequestForm() {
       setError("Kunde inte spara önskemålet. Försök igen.");
       setSaving(false);
     }
+  }
+
+  if (me === null) {
+    return (
+      <div className="space-y-4 border border-ink/10 bg-steel/5 px-5 py-6">
+        <p className="text-base text-ink">
+          Du behöver ett konto för att publicera önskemål.
+        </p>
+        <Link
+          href="/logga-in?next=%2Fnytt"
+          className="inline-flex rounded-sm bg-signal px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-signal-deep"
+        >
+          Logga in med e-post
+        </Link>
+      </div>
+    );
   }
 
   return (

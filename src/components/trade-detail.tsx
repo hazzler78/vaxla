@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { formatSek, statusLabel } from "@/lib/data";
 import type { Trade } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -15,11 +15,50 @@ type Props = {
   trade: Trade;
 };
 
+type MeUser = {
+  id: string;
+  email: string;
+  displayName: string;
+};
+
 export function TradeDetail({ trade: initial }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [trade, setTrade] = useState<Trade>(initial);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [me, setMe] = useState<MeUser | null | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "same-origin" });
+        const data = (await res.json()) as { user?: MeUser | null };
+        if (!cancelled) setMe(data.user ?? null);
+      } catch {
+        if (!cancelled) setMe(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loginHref = `/logga-in?next=${encodeURIComponent(pathname || `/marknad/${trade.id}`)}`;
+
+  const canMarkDone = useMemo(() => {
+    if (trade.status !== "in_progress") return false;
+    if (me === undefined) return false;
+    if (!me) return false;
+    const ownerId = trade.ownerId ?? null;
+    const sponsorId = trade.sponsorId ?? null;
+    if (ownerId == null && sponsorId == null) return true; // legacy rows
+    return me.id === ownerId || me.id === sponsorId;
+  }, [me, trade.ownerId, trade.sponsorId, trade.status]);
+
+  const showLoginForDone =
+    trade.status === "in_progress" && me === null;
 
   async function persist(patch: {
     status: Trade["status"];
@@ -36,7 +75,11 @@ export function TradeDetail({ trade: initial }: Props) {
       });
       const data = (await res.json()) as { trade?: Trade; error?: string };
       if (!res.ok || !data.trade) {
-        setMessage(data.error || "Kunde inte spara statusen.");
+        if (res.status === 401) {
+          setMessage("Logga in för att uppdatera statusen.");
+        } else {
+          setMessage(data.error || "Kunde inte spara statusen.");
+        }
         return null;
       }
       setTrade(data.trade);
@@ -53,7 +96,7 @@ export function TradeDetail({ trade: initial }: Props) {
   async function sponsor() {
     const next = await persist({
       status: "sponsored",
-      sponsor: "Du (sponsor)",
+      sponsor: me?.displayName || "Du (sponsor)",
     });
     if (next) {
       setMessage(
@@ -72,6 +115,16 @@ export function TradeDetail({ trade: initial }: Props) {
       );
     }
   }
+
+  async function markDone() {
+    const next = await persist({ status: "done" });
+    if (next) {
+      setMessage("Bytet är markerat som klart. Bra jobbat.");
+    }
+  }
+
+  const canClaim =
+    trade.status === "open" || trade.status === "sponsored";
 
   return (
     <article className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
@@ -163,16 +216,40 @@ export function TradeDetail({ trade: initial }: Props) {
               Sponsra köpet
             </Button>
           ) : null}
-          <Button
-            type="button"
-            size="lg"
-            variant="secondary"
-            disabled={busy || trade.status === "in_progress" || trade.status === "done"}
-            className="rounded-sm px-5"
-            onClick={claimWork}
-          >
-            {trade.kind === "job" ? "Ta uppdraget" : "Börja jobba av"}
-          </Button>
+          {canClaim ? (
+            <Button
+              type="button"
+              size="lg"
+              variant="secondary"
+              disabled={busy}
+              className="rounded-sm px-5"
+              onClick={claimWork}
+            >
+              {trade.kind === "job" ? "Ta uppdraget" : "Börja jobba av"}
+            </Button>
+          ) : null}
+          {canMarkDone ? (
+            <Button
+              type="button"
+              size="lg"
+              disabled={busy}
+              className="rounded-sm bg-work px-5 text-primary-foreground hover:opacity-90"
+              onClick={markDone}
+            >
+              Markera som klar
+            </Button>
+          ) : null}
+          {showLoginForDone ? (
+            <Link
+              href={loginHref}
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "rounded-sm bg-work px-5 text-primary-foreground hover:opacity-90",
+              )}
+            >
+              Logga in för att markera klar
+            </Link>
+          ) : null}
           <Link
             href="/marknad"
             className={cn(buttonVariants({ variant: "outline", size: "lg" }), "rounded-sm px-5")}

@@ -1,3 +1,4 @@
+import { ensureAuthSchema } from "@/lib/auth";
 import { seedTrades } from "@/lib/seed-trades";
 import { getSql, isDatabaseConfigured } from "@/lib/db";
 import type { Trade, TradeKind, TradeStatus } from "@/lib/types";
@@ -46,6 +47,7 @@ let readyPromise: Promise<void> | null = null;
 
 async function ensureSchemaAndSeed(): Promise<void> {
   const sql = getSql();
+  await ensureAuthSchema();
 
   await sql`
     CREATE TABLE IF NOT EXISTS trades (

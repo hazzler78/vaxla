@@ -38,15 +38,15 @@ export type StatusDecision =
   | { ok: false; error: string; status: number };
 
 /**
- * Enforce status machine + lightweight ownership without a full accounts product.
+ * Enforce status machine + account ownership.
  *
  * Rules (non-admin):
- * - open → sponsored: any actor; claims sponsor slot (first writer wins)
- * - open → in_progress: any actor (job claim / start work)
- * - sponsored → in_progress: owner or current sponsor actor
- * - in_progress → done: owner or current sponsor actor
+ * - open → sponsored: any logged-in user; claims sponsor slot (first writer wins)
+ * - open → in_progress: any logged-in user (job claim / start work)
+ * - sponsored → in_progress: owner or current sponsor account
+ * - in_progress → done: owner or current sponsor account
  * - cannot freely set sponsor without transitioning to sponsored
- * - cannot overwrite another actor's sponsor claim
+ * - cannot overwrite another account's sponsor claim
  */
 export function decideStatusPatch(
   trade: Trade & { ownerId?: string | null; sponsorId?: string | null },
