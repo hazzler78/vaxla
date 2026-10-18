@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { TradeImage } from "@/components/trade-image";
 import { usePathname, useRouter } from "next/navigation";
 import { formatSek, statusLabel } from "@/lib/data";
 import type { Trade } from "@/lib/types";
@@ -128,16 +128,13 @@ export function TradeDetail({ trade: initial }: Props) {
 
   return (
     <article className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-      <div className="relative min-h-[320px] overflow-hidden bg-steel/10 lg:min-h-[520px]">
-        <Image
-          src={trade.image}
-          alt={trade.title}
-          fill
-          priority
-          className="object-cover"
-          sizes="(max-width: 1024px) 100vw, 55vw"
-        />
-      </div>
+      <TradeImage
+        image={trade.image}
+        alt={trade.title}
+        category={trade.category}
+        variant="detail"
+        priority
+      />
 
       <div className="space-y-6">
         <div className="flex flex-wrap gap-2">

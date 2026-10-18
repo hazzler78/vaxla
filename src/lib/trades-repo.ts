@@ -192,9 +192,7 @@ export async function createTrade(input: CreateTradeInput): Promise<Trade> {
   const base = slugify(input.title) || "onskemal";
   const id = `${kind}-${base}-${Date.now().toString(36)}`;
   const createdAt = new Date().toISOString().slice(0, 10);
-  const image =
-    input.image ||
-    "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1600&q=80";
+  const image = input.image || "";
 
   const trade: Trade = {
     id,

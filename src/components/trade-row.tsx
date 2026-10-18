@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { TradeImage } from "@/components/trade-image";
 import { Badge } from "@/components/ui/badge";
 import { formatSek, statusLabel } from "@/lib/data";
 import type { Trade } from "@/lib/types";
@@ -10,15 +10,12 @@ export function TradeRow({ trade }: { trade: Trade }) {
       href={`/marknad/${trade.id}`}
       className="group grid gap-4 border-b border-ink/10 py-6 transition-colors last:border-b-0 hover:bg-ink/[0.03] sm:grid-cols-[140px_1fr_auto] sm:items-center"
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-steel/10 sm:aspect-square">
-        <Image
-          src={trade.image}
-          alt={trade.title}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-          sizes="140px"
-        />
-      </div>
+      <TradeImage
+        image={trade.image}
+        alt={trade.title}
+        category={trade.category}
+        variant="card"
+      />
 
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
