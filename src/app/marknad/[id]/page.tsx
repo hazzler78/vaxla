@@ -27,6 +27,11 @@ export async function generateMetadata({
     };
   }
 
+  const image = trade.image.trim();
+  const socialImages = image
+    ? [{ url: image, width: 1600, height: 900, alt: trade.title }]
+    : undefined;
+
   return {
     title: trade.title,
     description: trade.description,
@@ -36,13 +41,13 @@ export async function generateMetadata({
       type: "article",
       locale: "sv_SE",
       siteName: "Växla",
-      images: [{ url: trade.image, width: 1600, height: 900, alt: trade.title }],
+      ...(socialImages ? { images: socialImages } : {}),
     },
     twitter: {
       card: "summary_large_image",
       title: trade.title,
       description: trade.description,
-      images: [trade.image],
+      ...(image ? { images: [image] } : {}),
     },
   };
 }
