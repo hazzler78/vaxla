@@ -45,6 +45,9 @@ export const metadata: Metadata = {
   category: "marketplace",
   creator: "Växla",
   publisher: "Växla",
+  verification: {
+    google: "XONg7WDGMswG3gQ3LpxrUUmnaEJNEAJcCMv0sL2p1ZI",
+  },
   icons: {
     icon: "/icon.png",
     apple: "/apple-icon.png",
