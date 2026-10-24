@@ -30,7 +30,35 @@ export const metadata: Metadata = {
     template: "%s — Växla",
   },
   description:
-    "En marknad där arbetskraft är betalmedel. Sponsorer betalar varan, du betalar tillbaka med timmar.",
+    "Växla är marknaden där du kan få det du behöver och betala tillbaka med dina timmar. Hitta uppdrag, hjälp andra och byt arbete mot varor.",
+  keywords: [
+    "byteshandel",
+    "byta arbete",
+    "arbete mot varor",
+    "lokal arbetsmarknad",
+    "uppdrag",
+    "Växla",
+  ],
+  alternates: {
+    canonical: siteUrl,
+  },
+  category: "marketplace",
+  creator: "Växla",
+  publisher: "Växla",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
     type: "website",
     locale: "sv_SE",
