@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { trackVaxlaEvent } from "@/lib/analytics-events";
 
 type Props = {
   trade: Trade;
@@ -28,6 +29,13 @@ export function TradeDetail({ trade: initial }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [me, setMe] = useState<MeUser | null | undefined>(undefined);
+
+  useEffect(() => {
+    trackVaxlaEvent("trade_viewed", {
+      trade_id: initial.id,
+      status: initial.status,
+    });
+  }, [initial.id, initial.status]);
 
   useEffect(() => {
     let cancelled = false;

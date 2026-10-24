@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { trackVaxlaEvent } from "@/lib/analytics-events";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -12,11 +13,27 @@ type MeUser = {
   displayName: string;
 };
 
+let loginVerifiedTracked = false;
+
 export function AuthStatus({ compact = false }: { compact?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<MeUser | null | undefined>(undefined);
   const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("login_verified") !== "1" || loginVerifiedTracked) {
+      return;
+    }
+    loginVerifiedTracked = true;
+    trackVaxlaEvent("login_verified");
+    params.delete("login_verified");
+    const qs = params.toString();
+    router.replace(
+      `${pathname}${qs ? `?${qs}` : ""}${window.location.hash}`,
+    );
+  }, [pathname, router]);
 
   useEffect(() => {
     let cancelled = false;
