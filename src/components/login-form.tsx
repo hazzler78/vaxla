@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { trackVaxlaEvent } from "@/lib/analytics-events";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -55,6 +56,9 @@ export function LoginForm() {
         setMessage(data.error || "Kunde inte skicka inloggningslänk.");
         return;
       }
+      trackVaxlaEvent("magic_link_requested", {
+        has_display_name: Boolean(displayName.trim()),
+      });
       setMessage(data.message || "Kolla din e-post för inloggningslänken.");
       if (data.verifyUrl) {
         const url = new URL(data.verifyUrl);
