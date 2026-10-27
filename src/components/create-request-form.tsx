@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Trade } from "@/lib/types";
+import { trackVaxlaEvent } from "@/lib/analytics-events";
 
 type FormState = {
   title: string;
@@ -117,6 +118,10 @@ export function CreateRequestForm() {
         return;
       }
 
+      trackVaxlaEvent("trade_request_created", {
+        trade_id: data.trade.id,
+        category: form.category,
+      });
       router.push(`/marknad/${data.trade.id}`);
       router.refresh();
     } catch {

@@ -35,7 +35,9 @@ export async function GET(request: Request) {
       );
     }
 
-    const response = NextResponse.redirect(new URL(next, url.origin));
+    const destination = new URL(next, url.origin);
+    destination.searchParams.set("login_verified", "1");
+    const response = NextResponse.redirect(destination);
     appendSessionCookie(response, result.sessionToken);
     return response;
   } catch (error) {
